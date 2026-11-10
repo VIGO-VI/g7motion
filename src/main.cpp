@@ -208,7 +208,6 @@ int main(int argc, char** argv) {
     bool announced_wait = false;
     std::uint64_t last_open_attempt = 0;
     std::uint64_t last_send = 0;
-    std::uint64_t pulse_until = 0;
     std::uint8_t last_rumble_h = 0, last_rumble_l = 0;
     const std::uint64_t interval_ms =
         static_cast<std::uint64_t>(1000 / (rate > 0 ? rate : 250));
@@ -241,12 +240,6 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (dev.is_open() && pulse_until && now >= pulse_until) {
-            std::string perr;
-            dev.rumble(0, 0, 0, perr);
-            pulse_until = 0;
-        }
-
         if (!dev.is_open()) {
             if (vdev && now - last_send >= interval_ms) {
                 state = g7::State{};
@@ -268,14 +261,6 @@ int main(int argc, char** argv) {
         if (vdev && now - last_send >= interval_ms) {
             vdev->send_report(to_ds4(state));
             const auto out = vdev->take_output();
-            // Steam's DualShock 4 "ping" is an LED-only effect.  Turn a
-            // lightbar change with no motor bytes into a short pulse so the
-            // identification ping is felt on the physical grips.
-            if (out.led_changed && out.heavy < 0 && out.light < 0) {
-                std::string perr;
-                if (dev.rumble(90, 90, 20, perr))
-                    pulse_until = now + 150;
-            }
             if (out.heavy >= 0 || out.light >= 0) {
                 if (out.heavy >= 0) last_rumble_h = static_cast<std::uint8_t>(out.heavy);
                 if (out.light >= 0) last_rumble_l = static_cast<std::uint8_t>(out.light);
