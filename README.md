@@ -189,3 +189,21 @@ Verify:
 
 Steam's controller log should contain `Controller using HIDAPI driver,
 vid=0x054c, pid=0x05c4`.
+
+### Steam gyro notes
+
+Steam's gyro graph uses °/s and is deliberately sensitive: a slow rotation
+can show hundreds of °/s.  At rest the G7 Pro reads a few °/s of bias; use
+Steam's **Calibrate** button (or enable auto-calibrate) once, lying flat.
+
+Steam's controller-test **Rumble** button did not emit a DS4 output report
+for this virtual pad (journal showed only LED/zero reports).  The physical
+rumble path itself is verified with `rumble_test` and with the xpad
+extension; Steam may be targeting its own virtual XInput slot instead of the
+DS4 hidraw output.  Use a game's own rumble test to confirm Steam's game path.
+
+### LED
+
+The virtual DS4 exposes a lightbar, but the G7 Pro's physical Xbox button
+ring is not an RGB DualShock lightbar and has no confirmed vendor packet for
+arbitrary colour.  Steam's LED section therefore has no physical target.

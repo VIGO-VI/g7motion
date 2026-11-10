@@ -266,7 +266,8 @@ int main(int argc, char** argv) {
                 if (out.light >= 0) last_rumble_l = static_cast<std::uint8_t>(out.light);
                 const bool on = last_rumble_h || last_rumble_l;
                 std::string rerr;
-                if (!dev.rumble(last_rumble_h, last_rumble_l, on ? 100 : 0, rerr) && verbose)
+                if (!dev.rumble(last_rumble_h, last_rumble_l,
+                                on ? 100 : 0, rerr))
                     std::fprintf(stderr, "rumble: %s\n", rerr.c_str());
             }
             last_send = now;
