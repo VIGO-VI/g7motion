@@ -1,0 +1,16 @@
+[Unit]
+Description=GameSir G7 Pro -> virtual DualShock 4 with real gyro/accel
+Documentation=https://github.com/VIGO-VI/g7motion
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/g7motion
+Restart=on-failure
+RestartSec=2
+# The bridge detaches xpad while it runs; stopping the service gives the
+# physical controller back to the kernel.
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target
