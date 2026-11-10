@@ -9,3 +9,11 @@ KERNEL=="uhid", TAG+="uaccess", MODE="0660"
 # (SDL3, Steam, Eden, ScarletNX).  Match only uhid-created DS4 v1 devices.
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", DEVPATH=="/devices/virtual/misc/uhid/0003:054C:05C4.*", MODE="0666", TAG+="uaccess"
 SUBSYSTEM=="input", KERNEL=="event*", DEVPATH=="/devices/virtual/misc/uhid/0003:054C:05C4.*", MODE="0666", TAG+="uaccess"
+
+# Bluetooth identity (3537:1022): the pad accepts the Xbox rumble report on
+# hidraw even though its descriptor does not declare one.  The BT bridge
+# (g7bt) needs write access to send it.
+SUBSYSTEM=="hidraw", ATTRS{id/vendor}=="3537", ATTRS{id/product}=="1022", MODE="0660", TAG+="uaccess"
+
+# /dev/uinput for the virtual FF-capable pad.
+KERNEL=="uinput", MODE="0660", TAG+="uaccess", OPTIONS+="static_node=uinput"

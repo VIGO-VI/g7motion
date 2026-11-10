@@ -1,0 +1,13 @@
+[Unit]
+Description=GameSir G7 Pro Bluetooth rumble bridge (virtual Xbox 360 pad)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/g7bt
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

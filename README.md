@@ -112,15 +112,16 @@ grep -B4 -A6 'GameSir G7 Pro (Virtual DualShock 4)' /proc/bus/input/devices
 Both grips should buzz for one second.  This exercises the full path:
 evdev FF → UHID output report → 13-byte GIP packet → physical motors.
 
-### 8. Persistent user service (recommended)
+### 8. Persistent user services (recommended)
 
 ```sh
 ./scripts/install-user-service.sh
 ```
 
-It installs `~/.local/bin/g7motion` and a systemd user unit, then enables and
-starts it.  The service starts at login, waits for the controller, and
-recreates the virtual DS4 after replug or reboot.
+It installs `g7motion` and `g7bt` into `~/.local/bin` plus their systemd user
+units, and enables both.  `g7motion` handles USB (IMU, battery, rumble);
+`g7bt` idles until the pad appears over Bluetooth.  Both start at login, wait
+for the controller, and recreate their virtual device after replug or reboot.
 
 ```sh
 systemctl --user status g7motion
@@ -172,6 +173,51 @@ The forwarding path itself is verified with `rumble_test`, and in-game rumble
 works.  `LED` has no physical target: the G7 Pro's Xbox button ring is not a
 DualShock lightbar and has no arbitrary-colour vendor command.
 
+## Bluetooth
+
+Bluetooth uses a different identity (`3537:1022`): a generic HID gamepad with
+no IMU, no battery telemetry, and no force feedback in its descriptor.  Gyro
+and battery therefore remain wired-only.
+
+Rumble does work.  The firmware accepts the standard Xbox One output report on
+the hidraw node even though it never advertises it:
+
+```text
+03 0F LT RT LM RM
+```
+
+`g7bt` grabs the kernel's gamepad node, re-exports it as a virtual
+**Xbox 360** pad (`045e:028e`) with `FF_RUMBLE`, forwards input 1:1, and turns
+play/stop requests into that report.  Because the physical node is grabbed,
+games and Steam see only the virtual pad.
+
+```sh
+./build/g7bt            # or: systemctl --user start g7bt
+```
+
+Verify:
+
+```sh
+cc -O2 -Wall -Wextra -o build/rumble_test tests/rumble_test.c
+grep -B4 -A6 'GameSir G7 Pro (Bluetooth)' /proc/bus/input/devices   # note FF=
+./build/rumble_test /dev/input/eventN
+```
+
+Both grips buzz.  The trigger channels (`LT`/`RT`) are accepted by the pad but
+produced no perceptible vibration on the tested unit.
+
+Notes:
+
+- `g7bt` needs write access to the Bluetooth hidraw node; the udev rule above
+  covers it.  Reinstall the rule after updating this repository.
+- No IMU is exposed in this mode, so Steam's gyro origins will be inactive.
+- If a game still sees the physical pad, restart Steam after `g7bt` starts so
+  it re-enumerates the grabbed device.
+
+For a native solution (FF on the real device, no virtual pad), see
+`upstream/BT-RUMBLE.md` in
+[g7pro-kernel](https://github.com/VIGO-VI/g7pro-kernel).
+
 ## Mapping
 
 | G7 Pro | Virtual DS4 |
@@ -196,10 +242,9 @@ DS4 calibration report matches those scales.
 
 ## Limitations
 
-- **Wired only for IMU, battery and rumble.**  Bluetooth exposes a generic
-  HID gamepad: no vendor interface, no battery, no force feedback.  A real
-  Xbox Bluetooth mode exists on the pad; support depends on what that mode
-  exposes.
+- **Wired only for IMU and battery.**  Bluetooth exposes a generic HID
+  gamepad: no vendor interface and no battery telemetry.  Rumble over
+  Bluetooth is provided by `g7bt` through an undeclared output report.
 - **Four paddles:** only L4 and Share map to the DS4 touchpad click.
 - **Native/GIP identity `3537:1022` is not supported.**  Hold Share+Menu to
   return to the configurable identity.
