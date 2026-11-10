@@ -1,7 +1,7 @@
 # g7motion
 
 Expose the GameSir G7 Pro's **actual gyroscope and accelerometer** as an
-SDL3 gamepad sensor.
+SDL3 gamepad sensor on Linux.
 
 The controller's own firmware normally converts motion into a right stick or
 mouse.  SDL3, Eden and ScarletNX never see a gyro that way.  `g7motion`
@@ -11,11 +11,124 @@ instead:
 2. keeps the vendor heartbeat session alive,
 3. reads report `0x10` at 500–1000 Hz,
 4. creates a virtual **DualShock 4 v1** via `/dev/uhid`,
-5. feeds it the raw sticks/buttons/triggers plus the raw IMU.
+5. feeds it the raw sticks/buttons/triggers plus the raw IMU,
+6. forwards the virtual pad's rumble output back to the physical grips.
 
 The kernel's `hid-playstation` driver and SDL3's PS4 HIDAPI driver then expose
 a real `SDL_SENSOR_GYRO` / `SDL_SENSOR_ACCEL` source.  No SDL patch, no Nexus,
-no dongle, no Bluetooth.
+no dongle.
+
+## Quick start
+
+```sh
+git clone https://github.com/VIGO-VI/g7motion.git
+cd g7motion
+```
+
+### 1. Dependencies
+
+| Distribution | Command |
+| --- | --- |
+| Arch | `sudo pacman -S --needed base-devel cmake pkgconf libusb sdl3` |
+| Debian/Ubuntu | `sudo apt install build-essential cmake pkg-config libusb-1.0-0-dev libsdl3-dev` |
+| Fedora | `sudo dnf install gcc-c++ cmake pkgconf-pkg-config libusb1-devel SDL3-devel` |
+
+Only `libusb-1.0` and CMake are required.  `SDL3` is optional; without it the
+`sdl3_probe` verification tool is not built.
+
+### 2. Build
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j"$(nproc)"
+```
+
+### 3. Grant access to the controller and `/dev/uhid`
+
+```sh
+sudo install -Dm644 udev/61-g7motion.rules /etc/udev/rules.d/61-g7motion.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Replug the controller once.  After this the bridge runs as your user; `sudo`
+is not needed.
+
+### 4. Check the controller read path
+
+```sh
+./build/g7motion --probe
+```
+
+This prints sticks, buttons, gyro, accel and battery for five seconds.  It
+proves USB access and the vendor protocol before any virtual device exists.
+
+### 5. Start the bridge
+
+```sh
+./build/g7motion
+```
+
+While it runs, the physical `xpad` device is detached and the virtual
+`GameSir G7 Pro (Virtual DualShock 4)` is the only gamepad.  Stop it with
+Ctrl+C to get the physical controller back.
+
+For daily use, install the user service instead (section below).
+
+### 6. Verify the IMU
+
+With the bridge running:
+
+```sh
+./build/sdl3_probe
+```
+
+Expected output:
+
+```text
+SDL3 3.x, 1 gamepad(s)
+  [0] PS4 Controller  gyro=1 accel=1
+gyro ok   0.0000   0.0000   0.0000 rad/s   accel ok  -0.0156   9.9300   0.0694 m/s^2
+```
+
+Rotate the controller: gyro changes.  Hold it still: accelerometer magnitude
+stays near 9.8 m/s².  If you only see `gyro=0 accel=0`, the bridge is not
+running or `/dev/uhid` is not writable.
+
+### 7. Verify rumble
+
+Build the small force-feedback test and point it at the virtual pad's event
+node:
+
+```sh
+cc -O2 -Wall -Wextra -o build/rumble_test tests/rumble_test.c
+
+# find the node: the virtual pad has PROP=0 and ABS=3003f
+grep -B4 -A6 'GameSir G7 Pro (Virtual DualShock 4)' /proc/bus/input/devices
+
+./build/rumble_test /dev/input/eventN
+```
+
+Both grips should buzz for one second.  This exercises the full path:
+evdev FF → UHID output report → 13-byte GIP packet → physical motors.
+
+### 8. Persistent user service (recommended)
+
+```sh
+./scripts/install-user-service.sh
+```
+
+It installs `~/.local/bin/g7motion` and a systemd user unit, then enables and
+starts it.  The service starts at login, waits for the controller, and
+recreates the virtual DS4 after replug or reboot.
+
+```sh
+systemctl --user status g7motion
+journalctl --user -u g7motion -f
+```
+
+To start it before login, enable lingering once:
+`sudo loginctl enable-linger "$USER"`.
 
 ## Why a virtual DS4?
 
@@ -28,81 +141,36 @@ This reuses the UHID DualShock 4 implementation from
 [ds4linux](https://github.com/PalashDalsaniya/ds4linux) (MIT), including its
 Sony calibration feature report.  The rest of ds4linux is not used.
 
-## Build
+The Sony VID/PID is required for SDL3 and Steam to select the PS4 HIDAPI
+driver; only the product string is changed so desktop battery/power UIs do
+not present the pad as a Sony device.
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j"$(nproc)"
+## Steam Input
+
+Steam sees the virtual DualShock 4 through its HIDAPI driver and uses the
+normal PS4 mapping, including gyro origins.  Steam's log should contain:
+
+```text
+Controller using HIDAPI driver, vid=0x054c, pid=0x05c4
 ```
 
-Dependencies: `libusb-1.0`, CMake, a C++20 compiler.  `sdl3` is optional and
-only builds the verification probe.
+Verify:
 
-## Test the controller read path
+1. `systemctl --user status g7motion` is active.
+2. Steam → Settings → Controller → Test/Calibration.
+3. Select the **PS4 Controller** and rotate the pad.
+4. For a game: Controller Layout → Gyro, or use Steam's
+   `controller_ps4_gamepad_mouse_gyro.vdf` template.
 
-```sh
-./build/g7motion --probe
-```
+Steam's gyro graph is in °/s and deliberately sensitive: a slow rotation can
+show hundreds of °/s.  At rest the G7 Pro reads a few °/s of bias; click
+**Calibrate** once while the pad lies flat, or enable auto-calibrate.
 
-This needs read/write access to the GameSir USB device.  Install the udev rule
-once (see below), replug, and run it as your user.  It prints sticks, buttons,
-gyro, accel and battery for five seconds.
-
-## Run
-
-`/dev/uhid` is normally root-only, so either run with `sudo`:
-
-```sh
-sudo ./build/g7motion
-```
-
-or install the udev rule and run as your user:
-
-```sh
-sudo install -Dm644 udev/61-g7motion.rules /etc/udev/rules.d/61-g7motion.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-Then:
-
-```sh
-./build/g7motion
-```
-
-While it runs, the physical `xpad` device is detached and the virtual
-"DualShock 4" is the only gamepad.  Stop it with Ctrl+C to get the physical
-controller back.
-
-### systemd
-
-```sh
-sudo install -Dm755 build/g7motion /usr/local/bin/g7motion
-sudo install -Dm644 systemd/g7motion.service /etc/systemd/system/g7motion.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now g7motion
-```
-
-Logs: `journalctl -u g7motion -f`.
-
-## Verify it is real SDL3 gyro
-
-With `g7motion` running:
-
-```sh
-./build/sdl3_probe
-```
-
-It should print the virtual pad with `gyro=1 accel=1`, then live values in
-`rad/s` and `m/s²`.  Rotate the controller; gyro changes.  Keep it still;
-accel stays near 9.8 m/s².
-
-Verified on the reference G7 Pro (3537:109b, wired): SDL3 3.4.18 reports
-`gyro=1 accel=1`, stationary accelerometer ≈ 9.9 m/s², and live gyro values.
-
-In Eden/ScarletNX the controller appears as a **DualShock 4** with motion.
-Select SDL as the motion source (not mouse-as-motion), then map the gyro in
-the emulator's controller settings.
+Steam's controller-test **Rumble** button only emitted LED/zero-motor output
+reports for this virtual pad, so there is nothing to forward from that button.
+The forwarding path itself is verified with `rumble_test`, and in-game rumble
+works.  `LED` has no physical target: the G7 Pro's Xbox button ring is not a
+DualShock lightbar and has no arbitrary-colour vendor command.
 
 ## Mapping
 
@@ -128,16 +196,27 @@ DS4 calibration report matches those scales.
 
 ## Limitations
 
-- **Wired only.**  Bluetooth mode does not expose the vendor interface.
-- **No rumble/LED forwarding yet.**  The virtual DS4's output reports are
-  drained but not sent to the G7 Pro.
+- **Wired only for IMU, battery and rumble.**  Bluetooth exposes a generic
+  HID gamepad: no vendor interface, no battery, no force feedback.  A real
+  Xbox Bluetooth mode exists on the pad; support depends on what that mode
+  exposes.
 - **Four paddles:** only L4 and Share map to the DS4 touchpad click.
 - **Native/GIP identity `3537:1022` is not supported.**  Hold Share+Menu to
-  return to a configurable identity.
+  return to the configurable identity.
 - **Gyro axis orientation** is passed straight through.  If your unit needs
   yaw/roll swapped or inverted, patch `to_ds4()` (one line per axis).
 - The G7 Pro is unavailable to games while the bridge runs; that is the
   cost of exclusive ownership of its vendor interface.
+
+## Troubleshooting
+
+- `--probe` says permission denied: reinstall the udev rule, then replug.
+- `sdl3_probe` shows no gamepad: check `systemctl --user status g7motion`
+  and `ls -l /dev/uhid`.
+- The controller stops being a gamepad after a crash: the physical device
+  returns as soon as the bridge exits; replug if the interface stays claimed.
+- Kernel `xpad` reclaims the device: stop the bridge, unplug/replug, then
+  start it again.
 
 ## Protocol credit
 
@@ -151,59 +230,3 @@ report `0x10`, marker `0x3C`/`0xE0`, sticks 5–8, triggers 12–13, gyro
 GPL-3.0-or-later for this project.  The vendored UHID DS4 code from
 ds4linux remains MIT (GPL-compatible); see `third_party/ds4linux/LICENSE`.
 Reverse-engineering and interoperability notes are in `LEGAL.md`.
-
-## Persistent user service
-
-The bridge can run as a systemd user service; it starts at login, waits for the
-controller and recreates the virtual DS4 after replug/reboot.
-
-```sh
-./scripts/install-user-service.sh
-```
-
-Or manually:
-
-```sh
-install -Dm755 build/g7motion ~/.local/bin/g7motion
-install -Dm644 systemd/g7motion.user.service ~/.config/systemd/user/g7motion.service
-systemctl --user daemon-reload
-systemctl --user enable --now g7motion
-```
-
-Logs: `journalctl --user -u g7motion -f`.  If you need it before login,
-`sudo loginctl enable-linger "$USER"`.
-
-## Steam Input
-
-Steam sees the virtual DualShock 4 through its HIDAPI driver and uses the
-normal PS4 controller mapping.  The gyro/accelerometer are the DS4 sensor
-stream, so Steam Input's PS4 gyro origins work without extra software.
-
-Verify:
-
-1. Start the bridge (`systemctl --user status g7motion` should be active).
-2. Open Steam → Settings → Controller → Test/Calibration.
-3. Select the **PS4 Controller** and rotate the pad; gyro should respond.
-4. For a game: Controller Layout → Gyro, or use Steam's
-   `controller_ps4_gamepad_mouse_gyro.vdf` template.
-
-Steam's controller log should contain `Controller using HIDAPI driver,
-vid=0x054c, pid=0x05c4`.
-
-### Steam gyro notes
-
-Steam's gyro graph uses °/s and is deliberately sensitive: a slow rotation
-can show hundreds of °/s.  At rest the G7 Pro reads a few °/s of bias; use
-Steam's **Calibrate** button (or enable auto-calibrate) once, lying flat.
-
-Steam's controller-test **Rumble** button did not emit a DS4 output report
-for this virtual pad (journal showed only LED/zero reports).  The physical
-rumble path itself is verified with `rumble_test` and with the xpad
-extension; Steam may be targeting its own virtual XInput slot instead of the
-DS4 hidraw output.  Use a game's own rumble test to confirm Steam's game path.
-
-### LED
-
-The virtual DS4 exposes a lightbar, but the G7 Pro's physical Xbox button
-ring is not an RGB DualShock lightbar and has no confirmed vendor packet for
-arbitrary colour.  Steam's LED section therefore has no physical target.
