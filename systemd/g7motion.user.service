@@ -1,0 +1,13 @@
+[Unit]
+Description=GameSir G7 Pro gyro/accel bridge (virtual DualShock 4)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/g7motion
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

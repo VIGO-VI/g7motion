@@ -151,3 +151,24 @@ report `0x10`, marker `0x3C`/`0xE0`, sticks 5–8, triggers 12–13, gyro
 GPL-3.0-or-later for this project.  The vendored UHID DS4 code from
 ds4linux remains MIT (GPL-compatible); see `third_party/ds4linux/LICENSE`.
 Reverse-engineering and interoperability notes are in `LEGAL.md`.
+
+## Persistent user service
+
+The bridge can run as a systemd user service; it starts at login, waits for the
+controller and recreates the virtual DS4 after replug/reboot.
+
+```sh
+./scripts/install-user-service.sh
+```
+
+Or manually:
+
+```sh
+install -Dm755 build/g7motion ~/.local/bin/g7motion
+install -Dm644 systemd/g7motion.user.service ~/.config/systemd/user/g7motion.service
+systemctl --user daemon-reload
+systemctl --user enable --now g7motion
+```
+
+Logs: `journalctl --user -u g7motion -f`.  If you need it before login,
+`sudo loginctl enable-linger "$USER"`.
