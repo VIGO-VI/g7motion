@@ -172,3 +172,20 @@ systemctl --user enable --now g7motion
 
 Logs: `journalctl --user -u g7motion -f`.  If you need it before login,
 `sudo loginctl enable-linger "$USER"`.
+
+## Steam Input
+
+Steam sees the virtual DualShock 4 through its HIDAPI driver and uses the
+normal PS4 controller mapping.  The gyro/accelerometer are the DS4 sensor
+stream, so Steam Input's PS4 gyro origins work without extra software.
+
+Verify:
+
+1. Start the bridge (`systemctl --user status g7motion` should be active).
+2. Open Steam → Settings → Controller → Test/Calibration.
+3. Select the **PS4 Controller** and rotate the pad; gyro should respond.
+4. For a game: Controller Layout → Gyro, or use Steam's
+   `controller_ps4_gamepad_mouse_gyro.vdf` template.
+
+Steam's controller log should contain `Controller using HIDAPI driver,
+vid=0x054c, pid=0x05c4`.
