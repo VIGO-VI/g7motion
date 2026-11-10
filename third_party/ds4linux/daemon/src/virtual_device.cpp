@@ -240,7 +240,7 @@ VirtualDevice::VirtualDevice(const std::array<std::uint8_t, 6>& mac)
 
     auto& cr = ev.u.create2;
     std::strncpy(reinterpret_cast<char*>(cr.name),
-                 "Sony Computer Entertainment Wireless Controller",
+                 "GameSir G7 Pro (Virtual DualShock 4)",
                  sizeof(cr.name) - 1);
     std::strncpy(reinterpret_cast<char*>(cr.phys),
                  std::string(kVirtualDS4Phys).c_str(),
