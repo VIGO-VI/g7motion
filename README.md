@@ -181,6 +181,12 @@ Bluetooth uses a different identity (`3537:1022`): a generic HID gamepad with
 no IMU, no battery telemetry, and no force feedback in its descriptor.  Gyro
 and battery therefore remain wired-only.
 
+That is not just missing metadata.  With the pad rotated by the grips and no
+stick or button contact, no byte of the 11-byte gamepad report changes, and
+none of the 32 possible HID feature reports responds, so there is no hidden
+IMU or battery channel to decode.  Rumble is different because an output
+report is write-only and the firmware happens to accept one.
+
 Rumble does work.  The firmware accepts the standard Xbox One output report on
 the hidraw node even though it never advertises it:
 
