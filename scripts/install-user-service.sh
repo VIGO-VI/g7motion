@@ -11,6 +11,10 @@ install -Dm644 "$ROOT/systemd/g7motion.user.service" \
 install -Dm644 "$ROOT/systemd/g7bt.user.service" \
 	"$HOME/.config/systemd/user/g7bt.service"
 
+# Hide the grabbed Bluetooth original from SDL; g7bt re-exports it.
+install -Dm644 "$ROOT/environment.d/90-g7bt.conf" \
+	"$HOME/.config/environment.d/90-g7bt.conf"
+
 systemctl --user daemon-reload
 systemctl --user enable --now g7motion
 systemctl --user enable --now g7bt

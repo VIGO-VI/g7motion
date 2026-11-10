@@ -211,8 +211,11 @@ Notes:
 - `g7bt` needs write access to the Bluetooth hidraw node; the udev rule above
   covers it.  Reinstall the rule after updating this repository.
 - No IMU is exposed in this mode, so Steam's gyro origins will be inactive.
-- If a game still sees the physical pad, restart Steam after `g7bt` starts so
-  it re-enumerates the grabbed device.
+- The installer adds `~/.config/environment.d/90-g7bt.conf`, which sets
+  `SDL_GAMECONTROLLER_IGNORE_DEVICES=0x3537/0x1022`.  The grabbed original is
+  still enumerated by SDL and would otherwise show up as a second, dead pad.
+  Log out and back in (or restart Steam) for it to take effect.  If `g7bt`
+  is not running, that also hides the pad from SDL; remove the file to undo.
 
 For a native solution (FF on the real device, no virtual pad), see
 `upstream/BT-RUMBLE.md` in
