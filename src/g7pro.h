@@ -59,6 +59,10 @@ public:
     // Read one 0x10 input frame.  Sends a heartbeat when one is due.
     ReadResult read(State& out, int timeout_ms, std::string& err);
 
+    // Send the 13-byte GIP four-motor rumble packet.  strong/weak are 0..255.
+    bool rumble(std::uint8_t strong, std::uint8_t weak,
+                std::uint8_t duration, std::string& err);
+
     // Print every GameSir USB device and exit.
     static void list();
 

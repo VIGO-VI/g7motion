@@ -208,6 +208,7 @@ int main(int argc, char** argv) {
     bool announced_wait = false;
     std::uint64_t last_open_attempt = 0;
     std::uint64_t last_send = 0;
+    std::uint8_t last_rumble_h = 0, last_rumble_l = 0;
     const std::uint64_t interval_ms =
         static_cast<std::uint64_t>(1000 / (rate > 0 ? rate : 250));
 
@@ -259,7 +260,15 @@ int main(int argc, char** argv) {
 
         if (vdev && now - last_send >= interval_ms) {
             vdev->send_report(to_ds4(state));
-            vdev->take_output();
+            const auto out = vdev->take_output();
+            if (out.heavy >= 0 || out.light >= 0) {
+                if (out.heavy >= 0) last_rumble_h = static_cast<std::uint8_t>(out.heavy);
+                if (out.light >= 0) last_rumble_l = static_cast<std::uint8_t>(out.light);
+                const bool on = last_rumble_h || last_rumble_l;
+                std::string rerr;
+                if (!dev.rumble(last_rumble_h, last_rumble_l, on ? 100 : 0, rerr) && verbose)
+                    std::fprintf(stderr, "rumble: %s\n", rerr.c_str());
+            }
             last_send = now;
         }
     }
