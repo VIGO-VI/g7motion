@@ -167,11 +167,13 @@ Steam's gyro graph is in °/s and deliberately sensitive: a slow rotation can
 show hundreds of °/s.  At rest the G7 Pro reads a few °/s of bias; click
 **Calibrate** once while the pad lies flat, or enable auto-calibrate.
 
-Steam's controller-test **Rumble** button only emitted LED/zero-motor output
-reports for this virtual pad, so there is nothing to forward from that button.
-The forwarding path itself is verified with `rumble_test`, and in-game rumble
-works.  `LED` has no physical target: the G7 Pro's Xbox button ring is not a
-DualShock lightbar and has no arbitrary-colour vendor command.
+With the virtual DualShock 4 (wired), Steam's controller-test **Rumble**
+button only emitted LED/zero-motor output reports, so there was nothing to
+forward from that button; the forwarding path is verified with `rumble_test`.
+Over Bluetooth, `g7bt` exposes a virtual **Xbox 360** pad instead, and Steam's
+controller test and "ping" both drive the physical motors correctly.
+`LED` has no physical target either way: the G7 Pro's Xbox button ring is not
+a DualShock lightbar and has no arbitrary-colour vendor command.
 
 ## Bluetooth
 
@@ -205,6 +207,9 @@ grep -B4 -A6 'GameSir G7 Pro (Bluetooth)' /proc/bus/input/devices   # note FF=
 
 Both grips buzz.  The trigger channels (`LT`/`RT`) are accepted by the pad but
 produced no perceptible vibration on the tested unit.
+
+Steam sees the virtual pad as `Xbox 360 Controller` (SDL mapping `45e/28e`)
+and its controller-test rumble and "ping" both work.
 
 Notes:
 
