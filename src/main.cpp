@@ -241,6 +241,16 @@ int main(int argc, char** argv) {
             }
         }
 
+        if (dev.is_open() && (last_rumble_h || last_rumble_l) &&
+            last_motor_ms != 0 && now - last_motor_ms > 1500) {
+            // The source stopped updating the motors without a stop report
+            // (common when a game loses focus); clear them.
+            std::string perr;
+            dev.rumble(0, 0, 0, perr);
+            last_rumble_h = last_rumble_l = 0;
+            last_motor_ms = 0;
+        }
+
         if (!dev.is_open()) {
             if (vdev && now - last_send >= interval_ms) {
                 state = g7::State{};
