@@ -267,7 +267,12 @@ bool Device::rumble(std::uint8_t strong, std::uint8_t weak,
     pkt[7] = 0x00;
     pkt[8] = static_cast<std::uint8_t>((strong * 100 + 127) / 255);
     pkt[9] = static_cast<std::uint8_t>((weak * 100 + 127) / 255);
-    pkt[10] = duration;
+    // Same shape as xpad's GIP rumble: on-period 0xFF and repeat 0xFF mean
+    // "run until a zeroed packet stops it", so long effects are not cut off.
+    const bool on = duration != 0;
+    pkt[10] = on ? 0xff : 0x00;
+    pkt[11] = 0x00;
+    pkt[12] = on ? 0xff : 0x00;
 
     int transferred = 0;
     const int rc = libusb_interrupt_transfer(
