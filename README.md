@@ -9,7 +9,7 @@ instead:
 
 1. claims the G7 Pro's vendor USB interface (detaching `xpad`),
 2. keeps the vendor heartbeat session alive,
-3. reads report `0x10` at 500–1000 Hz,
+3. reads the vendor report `0x10` continuously (about 300 reports/s observed in the test VM; the controller's gamepad reports are faster),
 4. creates a virtual **DualShock 4 v1** via `/dev/uhid`,
 5. feeds it the raw sticks/buttons/triggers plus the raw IMU,
 6. forwards the virtual pad's rumble output back to the physical grips.

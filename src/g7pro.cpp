@@ -248,6 +248,36 @@ bool Device::parse(const std::uint8_t* d, int len, State& s) {
     return true;
 }
 
+bool Device::rumble_raw(std::uint8_t on_period, std::uint8_t strong,
+                        std::uint8_t weak, std::string& err)
+{
+    std::uint8_t pkt[13] = {};
+
+    if (!handle_) {
+        err = "device not open";
+        return false;
+    }
+
+    pkt[0] = 0x09;
+    pkt[2] = ++seq_;
+    pkt[3] = 0x09;
+    pkt[5] = 0x0f;
+    pkt[8] = strong;
+    pkt[9] = weak;
+    pkt[10] = on_period;
+    pkt[11] = 0x00;
+    pkt[12] = 0x00;
+
+    int transferred = 0;
+    const int rc = libusb_interrupt_transfer(
+        handle_, 0x02, pkt, sizeof(pkt), &transferred, 1000);
+    if (rc != 0) {
+        err = std::string("raw rumble OUT failed: ") + libusb_error_name(rc);
+        return false;
+    }
+    return transferred == static_cast<int>(sizeof(pkt));
+}
+
 bool Device::rumble(std::uint8_t strong, std::uint8_t weak,
                     std::uint8_t duration, std::string& err)
 {

@@ -63,6 +63,11 @@ public:
     bool rumble(std::uint8_t strong, std::uint8_t weak,
                 std::uint8_t duration, std::string& err);
 
+    // Send one packet with an explicit on-period and no repeat, for timing
+    // experiments.  Units of on_period are firmware-defined.
+    bool rumble_raw(std::uint8_t on_period, std::uint8_t strong,
+                    std::uint8_t weak, std::string& err);
+
     // Print every GameSir USB device and exit.
     static void list();
 

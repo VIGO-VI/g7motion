@@ -30,6 +30,12 @@ target_link_libraries(g7motion PRIVATE
 target_compile_options(g7motion PRIVATE -Wall -Wextra -Wpedantic)
 
 install(TARGETS g7motion RUNTIME DESTINATION bin)
+# Measures how long one rumble packet keeps the motors running (uses the IMU).
+add_executable(rumble_tail tools/rumble_tail.cpp src/g7pro.cpp)
+target_include_directories(rumble_tail PRIVATE src)
+target_link_libraries(rumble_tail PRIVATE PkgConfig::LIBUSB Threads::Threads)
+target_compile_options(rumble_tail PRIVATE -Wall -Wextra -Wpedantic)
+
 
 # Bluetooth rumble bridge: no IMU over BT, but the pad accepts the Xbox
 # rumble output report, so re-export it as a virtual pad with FF_RUMBLE.
